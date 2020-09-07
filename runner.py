@@ -5,12 +5,19 @@ import scipy
 import scipy.io.wavfile as wv
 import argparse
 import os
-#%%
+from tqdm import tqdm
+
+# %%
 parser = argparse.ArgumentParser()
-parser.add_argument("-d","--dir", help="Directory to get audio from", default = "music/")
-parser.add_argument("-r", "--rate", help="Audio rate", default = 22040, type = int)
-parser.add_argument("-o", "--order", help="Audio Progression", type = str)
-parser.add_argument("-f", "--fname", help="Output file name", type = str)
+parser.add_argument(
+    "-d", "--dir", help="Directory to get audio from", default="music/")
+parser.add_argument("-r", "--rate", help="Audio rate", default=22040, type=int)
+parser.add_argument("-o", "--order", help="Audio Progression", type=str)
+parser.add_argument("-f", "--fname", help="Output file path", type=str)
+parser.add_argument("-ran", "--random",
+                    help="Random? 1 or 0", type=int, default=0)
+parser.add_argument(
+    "-n", "--number", help="How many outputs?", type=int, default=1)
 args = parser.parse_args()
 
 # %%
@@ -19,6 +26,7 @@ chords = [x.split(".")[0] for x in music]
 
 # %%
 
+
 def loadsong(x):
     """
     Removes zeros from before an after
@@ -26,7 +34,9 @@ def loadsong(x):
     """
     return np.trim_zeros(librosa.load(x, sr=None)[0])
 
-#%%
+# %%
+
+
 def indivsplit(x):
     """
     Splits by * to find out number of repeats
@@ -41,7 +51,9 @@ def indivsplit(x):
 
     return f"{args.dir}{str(temp[0])}.wav", rep
 
-#%%
+# %%
+
+
 def musicloader(tup):
     """
     Goes through all audio mentioned
@@ -52,16 +64,15 @@ def musicloader(tup):
     songs = list(set([x[0] for x in tup]))
     songs_all = [x[0] for x in tup]
     rep = [x[1] for x in tup]
-    dict_songs = {x:loadsong(x) for x in songs}
+    dict_songs = {x: loadsong(x) for x in songs}
     mix_song = []
     for i in range(len(rep)):
         assert len(tup) == len(rep)
         mix_song.extend(np.tile(dict_songs[songs_all[i]], rep[i]))
-    print("[INFO] Done! Check the output folder")
     return np.array(mix_song)
-    
 
-#%%
+
+# %%
 
 def chordprogression(x):
     """
@@ -73,16 +84,31 @@ eg. am-2;b-3;b;bm-10
     read_chords = [indivsplit(chord) for chord in chords]
     print(f"[INFO] Read all chords : {read_chords}")
     return read_chords
-#%%
+# %%
+
+
 def repeater(x, n):
     """
     Repeats an array n times and concatenates them
     """
     return np.tile(x, n)
-
-# %%
-cp = chordprogression(args.order)
 # %%
 
-wv.write(f"{args.fname}.wav", int(args.rate), musicloader(cp))
+
+def saver(order, ran, num):
+    """
+    Main function for saving the files
+    Also generates randomness when required
+    """
+    global chords
+    cp = chordprogression(order)
+    if (num <= 1) and (ran == 0):
+        wv.write(f"{args.fname}/combined.wav", int(args.rate), musicloader(cp))
+    else:
+        if (ran == 0):
+            for i in tqdm(range(num)):
+                wv.write(f"{args.fname}/combined-{i}.wav", int(args.rate), musicloader(cp))
+    
+    print("[INFO] Done! Check the output folder")
 # %%
+saver(args.order, args.random, args.number)
