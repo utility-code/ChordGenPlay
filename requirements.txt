@@ -1,0 +1,4 @@
+scipy==1.5.2
+librosa==0.8.0
+tqdm==4.48.2
+numpy==1.19.1
