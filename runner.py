@@ -6,6 +6,7 @@ import scipy.io.wavfile as wv
 import argparse
 import os
 from tqdm import tqdm
+import random
 
 # %%
 parser = argparse.ArgumentParser()
@@ -18,6 +19,10 @@ parser.add_argument("-ran", "--random",
                     help="Random? 1 or 0", type=int, default=0)
 parser.add_argument(
     "-n", "--number", help="How many outputs?", type=int, default=1)
+parser.add_argument(
+    "-m", "--rep", help="How many repeats for random values?", type=int, default=1)
+parser.add_argument(
+    "-l", "--maxlen", help="Max length of generated audio (no of chosen)?", type=int, default=1)
 args = parser.parse_args()
 
 # %%
@@ -66,7 +71,7 @@ def musicloader(tup):
     rep = [x[1] for x in tup]
     dict_songs = {x: loadsong(x) for x in songs}
     mix_song = []
-    for i in range(len(rep)):
+    for i in tqdm(range(len(rep))):
         assert len(tup) == len(rep)
         mix_song.extend(np.tile(dict_songs[songs_all[i]], rep[i]))
     return np.array(mix_song)
@@ -87,27 +92,58 @@ eg. am-2;b-3;b;bm-10
 # %%
 
 
-def repeater(x, n):
+def name_find(x):
     """
-    Repeats an array n times and concatenates them
+    Extracts name from the entire path 
+    eg: 'music/em7.wav' -> em7
     """
-    return np.tile(x, n)
+    return str(x).split("/")[-1]
 # %%
 
+def randomgen(num, override=[]):
+    """
+    Generates random combinations of files in the directory. 
+    Repeats them a random number between 0 and max_rep_length number of times too. 
+    This is the function you need to customize if you want something specific.
+    Override is used if a custom list is used
+    """
+    global music
+    if len(override)>0:
+        cp = override
+    else:
+        cp = music.copy()
+    random.shuffle(cp)
+    cp = [(x, random.randint(0, args.maxlen)) for x in cp]
+    if num > len(cp):
+        num = len(cp)
+    if num > args.maxlen:
+        num = args.maxlen
+    # print(cp[0:num])
+    return cp[0:num]
 
+
+#%%
 def saver(order, ran, num):
     """
     Main function for saving the files
     Also generates randomness when required
     """
-    global chords
     cp = chordprogression(order)
-    if (num <= 1) and (ran == 0):
-        wv.write(f"{args.fname}/combined.wav", int(args.rate), musicloader(cp))
-    else:
+    # print(cp)
+    # print(musicloader(randomgen(args.rep , [x[0] for x in cp])))
+    if (num >= 1): # Multiple generation
         if (ran == 0):
             for i in tqdm(range(num)):
-                wv.write(f"{args.fname}/combined-{i}.wav", int(args.rate), musicloader(cp))
+                wv.write(f"{args.fname}/combined-{str(i)}.wav", int(args.rate), musicloader(cp))
+        else: #shuffle and save multiple
+            for i in tqdm(range(num)):
+                wv.write(f"{args.fname}/combined-{str(i)}.wav", int(args.rate), musicloader(randomgen(args.rep)))
+    else: # Single audio
+        if (ran == 0): # no shuffle
+            wv.write(f"{args.fname}/combined.wav", int(args.rate), musicloader(cp))
+        else: #shuffle 
+            wv.write(f"{args.fname}/combined.wav", int(args.rate), musicloader(randomgen(args.rep , [x[0] for x in cp])))
+    
     
     print("[INFO] Done! Check the output folder")
 # %%
